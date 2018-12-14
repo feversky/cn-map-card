@@ -1,4 +1,10 @@
+import 'https://unpkg.com/leaflet-ant-path@1.1.2/dist/leaflet-ant-path.js?module';
+
+
 window.L.Icon.Default.imagePath = "/static/images/leaflet";
+
+const latitude_offset = -0.00205;
+const longitude_offset = 0.00407;
 
 const fireEvent = (node, type, detail, options) => {
   options = options || {};
@@ -226,7 +232,25 @@ class CNMapCard extends Polymer.Element {
 
     this._map = setupLeafletMap(this.$.map);
     this._drawEntities(this.hass);
-
+    let now = new Date();
+    let startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    
+    this._configEntities.forEach((entity) => {
+        const entityId = entity.entity;
+        this.hass.callApi('GET', `history/period/${startTime}?filter_entity_id=${entityId}`).then((data) => {
+            data = data[0];
+            if (!data) return;
+            let latlngs = [];
+            data.forEach((log) => {
+                if (log.attributes.latitude && log.attributes.longitude) {
+                    latlngs.push([log.attributes.latitude + latitude_offset, log.attributes.longitude + longitude_offset]);
+                }
+            });
+            let antPolyline = new L.Polyline.AntPath(latlngs);
+            antPolyline.addTo(this._map);
+        })
+    });
+    
     setTimeout(() => {
       this._resetMap();
       this._fitMap();
@@ -308,8 +332,8 @@ class CNMapCard extends Polymer.Element {
       if (!(latitude && longitude)) {
         return;
       }
-      latitude += -0.00205;
-      longitude += 0.00407;
+      latitude += latitude_offset;
+      longitude += longitude_offset;
 
       let markerIcon;
       let iconHTML;
